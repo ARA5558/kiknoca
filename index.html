@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pelan Tindakan & Dashboard KIK</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        /* Status Badges */
+        .status-belum { background-color: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+        .status-sedang { background-color: #fef08a; color: #854d0e; border: 1px solid #fde047; }
+        .status-selesai { background-color: #dcfce3; color: #166534; border: 1px solid #86efac; }
+        
+        /* Category Colors matching Gantt */
+        .cat-perancangan { color: #3b82f6; }
+        .cat-kajian { color: #f59e0b; }
+        .cat-pembangunan { color: #10b981; }
+        .cat-pelaksanaan { color: #8b5cf6; }
+        .cat-pelaporan { color: #ef4444; }
+        
+        /* Gantt Chart Reference Styles */
+        .gantt-table-container::-webkit-scrollbar { height: 8px; }
+        .gantt-table-container::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
+        .gantt-table-container::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .gantt-table-container::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .week-col { min-width: 28px; text-align: center; border-right: 1px solid #e2e8f0; }
+        .month-header { text-align: center; font-weight: 600; border-right: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0;}
+        .gantt-bar { height: 100%; width: 100%; border-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+        .bg-fasa-1 { background-color: #3b82f6 !important; }
+        .bg-fasa-2 { background-color: #f59e0b !important; }
+        .bg-fasa-3 { background-color: #10b981 !important; }
+        .bg-fasa-4 { background-color: #8b5cf6 !important; }
+        .bg-fasa-5 { background-color: #ef4444 !important; }
+    </style>
+</head>
+<body class="min-h-screen text-slate-800 p-4 md:p-6">
+
+    <div class="max-w-7xl mx-auto space-y-6">
+
+        <!-- Header -->
+        <div class="bg-slate-800 text-white rounded-xl p-6 shadow-lg flex flex-col md:flex-row justify-between items-center gap-4">
+            <div>
+                <h1 class="text-2xl md:text-3xl font-bold mb-1">Pelan Tindakan & Pengurusan Tugas</h1>
+                <p class="text-slate-300 font-medium">Projek Inovasi KIK: NOCA & GYCA</p>
+            </div>
+            <div class="flex gap-3 items-center">
+                <div id="connStatus" class="flex items-center gap-2 text-xs font-semibold bg-slate-700 px-3 py-1.5 rounded-lg text-slate-300">
+                    <div class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></div> Menyambung...
+                </div>
+                <span class="bg-blue-600/30 text-blue-200 border border-blue-500/50 px-3 py-1.5 rounded-lg text-sm font-semibold flex items-center gap-2">
+                    <div class="w-2 h-2 rounded-full bg-blue-400"></div> Sesi 2026/2027
+                </span>
+            </div>
+        </div>
+
+        <!-- Dashboard Section -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <!-- Stat Cards -->
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-center">
+                <h3 class="text-slate-500 text-sm font-semibold uppercase tracking-wider mb-1">Jumlah Tugasan</h3>
+                <p class="text-3xl font-bold text-slate-800" id="stat-total">0</p>
+            </div>
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-center">
+                <h3 class="text-slate-500 text-sm font-semibold uppercase tracking-wider mb-1">Selesai</h3>
+                <p class="text-3xl font-bold text-emerald-600" id="stat-selesai">0</p>
+            </div>
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-center">
+                <h3 class="text-slate-500 text-sm font-semibold uppercase tracking-wider mb-1">Sedang Berjalan</h3>
+                <p class="text-3xl font-bold text-amber-600" id="stat-sedang">0</p>
+            </div>
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-center">
+                <h3 class="text-slate-500 text-sm font-semibold uppercase tracking-wider mb-1">Belum Mula</h3>
+                <p class="text-3xl font-bold text-red-600" id="stat-belum">0</p>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Pie Chart -->
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 lg:col-span-1 flex flex-col items-center">
+                <h3 class="text-slate-800 font-bold mb-4 w-full text-left">Status Keseluruhan</h3>
+                <div class="relative w-full max-w-[250px] aspect-square">
+                    <canvas id="statusChart"></canvas>
+                </div>
+            </div>
+            <!-- Bar Chart Category -->
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 lg:col-span-1">
+                <h3 class="text-slate-800 font-bold mb-4">Kemajuan (Kategori Fasa)</h3>
+                <div class="relative w-full h-64">
+                    <canvas id="categoryChart"></canvas>
+                </div>
+            </div>
+            <!-- Bar Chart PIC -->
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 lg:col-span-1">
+                <h3 class="text-slate-800 font-bold mb-4">Prestasi Ahli (PIC)</h3>
+                <div class="relative w-full h-64">
+                    <canvas id="picChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Gantt Chart Reference Section -->
+        <details class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden" open>
+            <summary class="bg-slate-50 border-b border-slate-200 p-4 font-bold text-slate-800 text-lg cursor-pointer hover:bg-slate-100 transition-colors">
+                Rujukan Pantas: Carta Gantt Projek KIK (Klik untuk buka/tutup)
+            </summary>
+            <div class="p-4 border-b border-slate-200 flex flex-wrap gap-4 text-xs font-medium bg-white">
+                <div class="flex items-center gap-2"><div class="w-3 h-3 rounded bg-fasa-1 gantt-bar"></div> F1: Perancangan</div>
+                <div class="flex items-center gap-2"><div class="w-3 h-3 rounded bg-fasa-2 gantt-bar"></div> F2: Kajian</div>
+                <div class="flex items-center gap-2"><div class="w-3 h-3 rounded bg-fasa-3 gantt-bar"></div> F3: Pembangunan</div>
+                <div class="flex items-center gap-2"><div class="w-3 h-3 rounded bg-fasa-4 gantt-bar"></div> F4: Pelaksanaan</div>
+                <div class="flex items-center gap-2"><div class="w-3 h-3 rounded bg-fasa-5 gantt-bar"></div> F5: Pelaporan</div>
+            </div>
+            <div class="gantt-table-container overflow-x-auto w-full p-4 bg-white">
+                <table class="w-full text-xs border-collapse min-w-[900px]">
+                    <thead>
+                        <tr class="bg-slate-100 text-slate-700">
+                            <th rowspan="2" class="p-2 text-left border border-slate-300 w-1/4">Aktiviti / Tindakan</th>
+                            <th colspan="4" class="month-header border-t border-slate-300 p-1">Okt 26</th>
+                            <th colspan="4" class="month-header border-t border-slate-300 p-1">Nov 26</th>
+                            <th colspan="4" class="month-header border-t border-slate-300 p-1">Dis 26</th>
+                            <th colspan="4" class="month-header border-t border-slate-300 p-1">Jan 27</th>
+                            <th colspan="4" class="month-header border-t border-slate-300 p-1">Feb 27</th>
+                        </tr>
+                        <tr class="bg-slate-50 text-[10px] text-slate-500">
+                            <th class="week-col p-0.5 border-b border-slate-300">1</th><th class="week-col p-0.5 border-b border-slate-300">2</th><th class="week-col p-0.5 border-b border-slate-300">3</th><th class="week-col p-0.5 border-b border-slate-300">4</th>
+                            <th class="week-col p-0.5 border-b border-slate-300">1</th><th class="week-col p-0.5 border-b border-slate-300">2</th><th class="week-col p-0.5 border-b border-slate-300">3</th><th class="week-col p-0.5 border-b border-slate-300">4</th>
+                            <th class="week-col p-0.5 border-b border-slate-300">1</th><th class="week-col p-0.5 border-b border-slate-300">2</th><th class="week-col p-0.5 border-b border-slate-300">3</th><th class="week-col p-0.5 border-b border-slate-300">4</th>
+                            <th class="week-col p-0.5 border-b border-slate-300">1</th><th class="week-col p-0.5 border-b border-slate-300">2</th><th class="week-col p-0.5 border-b border-slate-300">3</th><th class="week-col p-0.5 border-b border-slate-300">4</th>
+                            <th class="week-col p-0.5 border-b border-slate-300">1</th><th class="week-col p-0.5 border-b border-slate-300">2</th><th class="week-col p-0.5 border-b border-slate-300">3</th><th class="week-col p-0.5 border-b border-slate-300">4</th>
+                        </tr>
+                    </thead>
+                    <tbody class="text-slate-700">
+                        <tr><td class="p-1.5 border border-slate-300 font-medium">1. Rancang & Kajian (Fasa 1 & 2)</td><td class="bg-fasa-1 border border-slate-300"></td><td class="bg-fasa-2 border border-slate-300"></td><td colspan="18" class="border border-slate-300 bg-slate-50/50"></td></tr>
+                        <tr><td class="p-1.5 border border-slate-300 font-medium">2. Reka Bentuk Prototaip (Fasa 3)</td><td class="bg-fasa-3 border border-slate-300"></td><td class="bg-fasa-3 border border-slate-300"></td><td class="bg-fasa-3 border border-slate-300"></td><td class="bg-fasa-3 border border-slate-300"></td><td class="bg-fasa-3 border border-slate-300"></td><td class="bg-fasa-3 border border-slate-300"></td><td class="bg-fasa-3 border border-slate-300"></td><td class="bg-fasa-3 border border-slate-300"></td><td colspan="12" class="border border-slate-300 bg-slate-50/50"></td></tr>
+                        <tr><td class="p-1.5 border border-slate-300 font-medium">3. Ujian Dalaman (Fasa 3)</td><td colspan="2" class="border border-slate-300 bg-slate-50/50"></td><td class="bg-fasa-3 border border-slate-300"></td><td class="bg-fasa-3 border border-slate-300"></td><td class="bg-fasa-3 border border-slate-300"></td><td class="bg-fasa-3 border border-slate-300"></td><td class="bg-fasa-3 border border-slate-300"></td><td class="bg-fasa-3 border border-slate-300"></td><td colspan="12" class="border border-slate-300 bg-slate-50/50"></td></tr>
+                        <tr><td class="p-1.5 border border-slate-300 font-medium">4. Permohonan Hak Cipta MyIPO</td><td colspan="6" class="border border-slate-300 bg-slate-50/50"></td><td class="bg-fasa-3 border border-slate-300"></td><td class="bg-fasa-3 border border-slate-300"></td><td colspan="12" class="border border-slate-300 bg-slate-50/50"></td></tr>
+                        <tr><td class="p-1.5 border border-slate-300 font-medium">5. Pilot Run Klinik O&G (Fasa 4)</td><td colspan="2" class="border border-slate-300 bg-slate-50/50"></td><td class="bg-fasa-4 border border-slate-300"></td><td class="bg-fasa-4 border border-slate-300"></td><td class="bg-fasa-4 border border-slate-300"></td><td class="bg-fasa-4 border border-slate-300"></td><td class="bg-fasa-4 border border-slate-300"></td><td class="bg-fasa-4 border border-slate-300"></td><td class="bg-fasa-4 border border-slate-300"></td><td class="bg-fasa-4 border border-slate-300"></td><td class="bg-fasa-4 border border-slate-300"></td><td class="bg-fasa-4 border border-slate-300"></td><td colspan="8" class="border border-slate-300 bg-slate-50/50"></td></tr>
+                        <tr><td class="p-1.5 border border-slate-300 font-medium">6. Draf Laporan Akhir (Fasa 5)</td><td colspan="4" class="border border-slate-300 bg-slate-50/50"></td><td class="bg-fasa-5 border border-slate-300"></td><td class="bg-fasa-5 border border-slate-300"></td><td class="bg-fasa-5 border border-slate-300"></td><td class="bg-fasa-5 border border-slate-300"></td><td class="bg-fasa-5 border border-slate-300"></td><td class="bg-fasa-5 border border-slate-300"></td><td class="bg-fasa-5 border border-slate-300"></td><td class="bg-fasa-5 border border-slate-300"></td><td class="bg-fasa-5 border border-slate-300"></td><td class="bg-fasa-5 border border-slate-300"></td><td class="bg-fasa-5 border border-slate-300"></td><td class="bg-fasa-5 border border-slate-300"></td><td class="bg-fasa-5 border border-slate-300"></td><td class="bg-fasa-5 border border-slate-300"></td><td colspan="2" class="border border-slate-300 bg-slate-50/50"></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </details>
+
+        <!-- Form Entry Section -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden" id="taskFormContainer">
+            <div class="bg-slate-50 border-b border-slate-200 p-4">
+                <h2 class="font-bold text-slate-800 text-lg">Tambah Tugasan Baharu</h2>
+            </div>
+            <form id="taskForm" class="p-5 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+                
+                <div class="lg:col-span-2">
+                    <label class="block text-sm font-semibold text-slate-700 mb-1">Tugasan / Butiran</label>
+                    <input type="text" id="inputTugas" required placeholder="Cth: Draf Laporan Akhir Bab 1" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1">Kategori (Fasa)</label>
+                    <select id="inputKategori" required class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="Fasa 1: Perancangan">Fasa 1: Perancangan</option>
+                        <option value="Fasa 2: Kajian">Fasa 2: Kajian</option>
+                        <option value="Fasa 3: Pembangunan">Fasa 3: Pembangunan</option>
+                        <option value="Fasa 4: Pelaksanaan">Fasa 4: Pelaksanaan</option>
+                        <option value="Fasa 5: Pelaporan" selected>Fasa 5: Pelaporan</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1">PIC (Ahli)</label>
+                    <select id="inputPic" required class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="Anita">Anita</option>
+                        <option value="Liyana">Liyana</option>
+                        <option value="Koghi">Koghi</option>
+                        <option value="AsmaZ">AsmaZ</option>
+                        <option value="Hamizah">Hamizah</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1">Tarikh Akhir (Due Date)</label>
+                    <input type="date" id="inputTarikh" required class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1">Status Semasa</label>
+                    <select id="inputStatus" required class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="Belum Mula">Belum Mula</option>
+                        <option value="Sedang Berjalan">Sedang Berjalan</option>
+                        <option value="Selesai">Selesai</option>
+                    </select>
+                </div>
+
+                <div class="lg:col-span-1">
+                    <label class="block text-sm font-semibold text-slate-700 mb-1">Komen / Catatan</label>
+                    <input type="text" id="inputKomen" placeholder="Pilihan..." class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+
+                <div class="lg:col-span-1 flex items-end gap-2">
+                    <button type="submit" id="submitBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200">
+                        + Tambah
+                    </button>
+                    <button type="button" id="cancelEditBtn" onclick="cancelEdit()" class="hidden w-1/3 bg-slate-300 hover:bg-slate-400 text-slate-700 font-semibold py-2 px-2 rounded-lg transition duration-200">
+                        Batal
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Task Table Section -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div class="bg-slate-50 border-b border-slate-200 p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                    <h2 class="font-bold text-slate-800 text-lg">Senarai Pelan Tindakan</h2>
+                    <span class="text-xs text-slate-500 italic">*Klik pada status untuk menukarnya dengan pantas</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <label for="filterStatus" class="text-sm font-bold text-slate-700">Tapis Paparan:</label>
+                    <select id="filterStatus" onchange="applyFilter(this.value)" class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                        <option value="Semua">Semua Tugasan</option>
+                        <option value="Belum Mula">Belum Mula Sahaja</option>
+                        <option value="Sedang Berjalan">Sedang Berjalan Sahaja</option>
+                        <option value="Selesai">Selesai Sahaja</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="overflow-x-auto custom-scrollbar">
+                <table class="w-full text-left border-collapse min-w-[900px]">
+                    <thead>
+                        <tr class="bg-slate-100 text-slate-600 text-sm border-b border-slate-300">
+                            <th class="p-3 font-semibold w-12 text-center">NO</th>
+                            <th class="p-3 font-semibold min-w-[200px]">TUGAS & BUTIRAN</th>
+                            <th class="p-3 font-semibold">KATEGORI</th>
+                            <th class="p-3 font-semibold w-24">PIC</th>
+                            <th class="p-3 font-semibold w-32">DUE DATE</th>
+                            <th class="p-3 font-semibold w-36 text-center">PROGRESS</th>
+                            <th class="p-3 font-semibold">KOMEN</th>
+                            <th class="p-3 font-semibold w-20 text-center">TINDAKAN</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody" class="text-sm divide-y divide-slate-200">
+                        <!-- Rows will be populated by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, updateDoc, deleteDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Firebase Initialization
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'kik-app-id';
+        
+        // Konfigurasi Firebase Kumpulan Anda (KIK NOCA)
+        const userFirebaseConfig = {
+            apiKey: "AIzaSyDNCUYBa-Cnmngg9C-QyU4WW6n6iQYtLcc",
+            authDomain: "kik-noca.firebaseapp.com",
+            projectId: "kik-noca",
+            storageBucket: "kik-noca.firebasestorage.app",
+            messagingSenderId: "127253266994",
+            appId: "1:127253266994:web:fa928aa721edf022b4722b"
+        };
+        
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : userFirebaseConfig;
+        
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+        
+        let currentUser = null;
+        let tasksRef = null;
+
+        // State Management
+        let tasks = [];
+        let editingId = null;
+        let currentFilter = 'Semua';
+        
+        // Chart Instances
+        let statusChartInst = null;
+        let categoryChartInst = null;
+        let picChartInst = null;
+
+        // DOM Elements
+        const tableBody = document.getElementById('tableBody');
+        const taskForm = document.getElementById('taskForm');
+
+        // Apply Filter
+        window.applyFilter = function(val) {
+            currentFilter = val;
+            renderTable();
+        };
+
+        // Format Date to DD MMM YYYY
+        function formatDate(dateStr) {
+            if(!dateStr) return "-";
+            const date = new Date(dateStr);
+            return date.toLocaleDateString('ms-MY', { day: 'numeric', month: 'short', year: 'numeric' });
+        }
+
+        // Get Status Badge Class
+        function getStatusBadge(status) {
+            if(status === "Selesai") return "status-selesai";
+            if(status === "Sedang Berjalan") return "status-sedang";
+            return "status-belum";
+        }
+
+        // Get Category Dot Color
+        function getCatColor(cat) {
+            if(cat.includes("Perancangan")) return "bg-blue-500";
+            if(cat.includes("Kajian")) return "bg-amber-500";
+            if(cat.includes("Pembangunan")) return "bg-emerald-500";
+            if(cat.includes("Pelaksanaan")) return "bg-purple-500";
+            if(cat.includes("Pelaporan")) return "bg-red-500";
+            return "bg-slate-500";
+        }
+
+        // Render Table
+        function renderTable() {
+            tableBody.innerHTML = '';
+            
+            // Filter and Sort Tasks
+            let displayTasks = tasks.filter(t => currentFilter === 'Semua' || t.status === currentFilter);
+            
+            displayTasks.sort((a, b) => {
+                // Rule 1: "Selesai" at the bottom
+                if (a.status === "Selesai" && b.status !== "Selesai") return 1;
+                if (a.status !== "Selesai" && b.status === "Selesai") return -1;
+                
+                // Rule 2: Sort by Phase/Category alphabetically (Fasa 1 -> Fasa 5)
+                return a.kategori.localeCompare(b.kategori);
+            });
+
+            if(displayTasks.length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-slate-500 italic">Tiada tugasan direkodkan untuk paparan ini.</td></tr>`;
+                return;
+            }
+
+            displayTasks.forEach((t, index) => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50 transition-colors";
+                
+                tr.innerHTML = `
+                    <td class="p-3 text-center text-slate-500 font-medium">${index + 1}</td>
+                    <td class="p-3 font-medium text-slate-800">${t.tugas}</td>
+                    <td class="p-3">
+                        <div class="flex items-center gap-2 text-slate-600">
+                            <div class="w-2 h-2 rounded-full ${getCatColor(t.kategori)}"></div>
+                            ${t.kategori}
+                        </div>
+                    </td>
+                    <td class="p-3 font-semibold text-slate-700">${t.pic}</td>
+                    <td class="p-3 text-slate-600">${formatDate(t.tarikh)}</td>
+                    <td class="p-3 text-center">
+                        <button onclick="toggleStatus('${t._id}')" class="px-2.5 py-1 rounded-full text-xs font-bold w-full cursor-pointer hover:opacity-80 transition-opacity ${getStatusBadge(t.status)}" title="Klik untuk tukar status pantas">
+                            ${t.status}
+                        </button>
+                    </td>
+                    <td class="p-3 text-slate-500 italic">${t.komen || '-'}</td>
+                    <td class="p-3 text-center flex justify-center gap-1">
+                        <button onclick="editTask('${t._id}')" class="text-blue-500 hover:text-blue-700 font-bold p-1 bg-blue-50 rounded" title="Kemaskini Tugasan">
+                            ✎
+                        </button>
+                        <button onclick="deleteTask('${t._id}')" class="text-red-400 hover:text-red-600 font-bold p-1 bg-red-50 rounded" title="Padam Tugasan">
+                            ✕
+                        </button>
+                    </td>
+                `;
+                tableBody.appendChild(tr);
+            });
+        }
+
+        // Add / Update Task
+        taskForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            if(!currentUser || !tasksRef) return;
+            
+            const taskData = {
+                tugas: document.getElementById('inputTugas').value,
+                kategori: document.getElementById('inputKategori').value,
+                pic: document.getElementById('inputPic').value,
+                tarikh: document.getElementById('inputTarikh').value,
+                status: document.getElementById('inputStatus').value,
+                komen: document.getElementById('inputKomen').value,
+                timestamp: Date.now()
+            };
+
+            const submitBtn = document.getElementById('submitBtn');
+            const originalText = submitBtn.innerHTML;
+            submitBtn.innerHTML = 'Menyimpan...';
+            submitBtn.disabled = true;
+
+            try {
+                if (editingId) {
+                    await updateDoc(doc(tasksRef, editingId), taskData);
+                    cancelEdit();
+                } else {
+                    const newDocRef = doc(tasksRef, Date.now().toString());
+                    await setDoc(newDocRef, taskData);
+                    taskForm.reset();
+                    document.getElementById('inputTarikh').valueAsDate = new Date();
+                }
+            } catch (error) {
+                console.error("Error saving doc:", error);
+            } finally {
+                submitBtn.innerHTML = originalText;
+                submitBtn.disabled = false;
+            }
+        });
+
+        // Load Task into Form for Editing
+        window.editTask = function(id) {
+            const task = tasks.find(t => t._id === id);
+            if(task) {
+                document.getElementById('inputTugas').value = task.tugas;
+                document.getElementById('inputKategori').value = task.kategori;
+                document.getElementById('inputPic').value = task.pic;
+                document.getElementById('inputTarikh').value = task.tarikh;
+                document.getElementById('inputStatus').value = task.status;
+                document.getElementById('inputKomen').value = task.komen || '';
+                
+                editingId = id;
+                
+                const submitBtn = document.getElementById('submitBtn');
+                submitBtn.innerHTML = '✓ Kemaskini';
+                submitBtn.classList.replace('bg-blue-600', 'bg-emerald-600');
+                submitBtn.classList.replace('hover:bg-blue-700', 'hover:bg-emerald-700');
+                document.getElementById('cancelEditBtn').classList.remove('hidden');
+                document.getElementById('taskFormContainer').classList.add('ring-2', 'ring-emerald-400');
+                document.getElementById('taskFormContainer').scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        };
+
+        // Cancel Edit Mode
+        window.cancelEdit = function() {
+            editingId = null;
+            taskForm.reset();
+            document.getElementById('inputTarikh').valueAsDate = new Date();
+            
+            const submitBtn = document.getElementById('submitBtn');
+            submitBtn.innerHTML = '+ Tambah';
+            submitBtn.classList.replace('bg-emerald-600', 'bg-blue-600');
+            submitBtn.classList.replace('hover:bg-emerald-700', 'hover:bg-blue-700');
+            document.getElementById('cancelEditBtn').classList.add('hidden');
+            document.getElementById('taskFormContainer').classList.remove('ring-2', 'ring-emerald-400');
+        };
+
+        // Delete Task
+        window.deleteTask = async function(id) {
+            if(!currentUser || !tasksRef) return;
+            try {
+                await deleteDoc(doc(tasksRef, id));
+            } catch(e) {
+                console.error("Error deleting doc:", e);
+            }
+        };
+
+        // Quick Toggle Status
+        window.toggleStatus = async function(id) {
+            if(!currentUser || !tasksRef) return;
+            const task = tasks.find(t => t._id === id);
+            if(task) {
+                let newStatus = "Belum Mula";
+                if(task.status === "Belum Mula") newStatus = "Sedang Berjalan";
+                else if(task.status === "Sedang Berjalan") newStatus = "Selesai";
+                
+                try {
+                    await updateDoc(doc(tasksRef, id), { status: newStatus });
+                } catch(e) {
+                     console.error("Error updating status:", e);
+                }
+            }
+        };
+
+        // Update Dashboard Stats & Charts
+        function updateDashboard() {
+            // Update Number Stats
+            const total = tasks.length;
+            const selesai = tasks.filter(t => t.status === "Selesai").length;
+            const sedang = tasks.filter(t => t.status === "Sedang Berjalan").length;
+            const belum = tasks.filter(t => t.status === "Belum Mula").length;
+
+            document.getElementById('stat-total').innerText = total;
+            document.getElementById('stat-selesai').innerText = selesai;
+            document.getElementById('stat-sedang').innerText = sedang;
+            document.getElementById('stat-belum').innerText = belum;
+
+            // Update Pie Chart
+            if(statusChartInst) statusChartInst.destroy();
+            const ctxPie = document.getElementById('statusChart').getContext('2d');
+            statusChartInst = new Chart(ctxPie, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Selesai', 'Sedang Berjalan', 'Belum Mula'],
+                    datasets: [{
+                        data: [selesai, sedang, belum],
+                        backgroundColor: ['#10b981', '#f59e0b', '#ef4444'],
+                        borderWidth: 0,
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom' } },
+                    cutout: '70%'
+                }
+            });
+
+            // Prepare Data for Bar Chart (Category Progress)
+            const categories = ["Fasa 1: Perancangan", "Fasa 2: Kajian", "Fasa 3: Pembangunan", "Fasa 4: Pelaksanaan", "Fasa 5: Pelaporan"];
+            const catSelesai = [];
+            const catSedang = [];
+            const catBelum = [];
+
+            categories.forEach(cat => {
+                const catTasks = tasks.filter(t => t.kategori === cat);
+                catSelesai.push(catTasks.filter(t => t.status === "Selesai").length);
+                catSedang.push(catTasks.filter(t => t.status === "Sedang Berjalan").length);
+                catBelum.push(catTasks.filter(t => t.status === "Belum Mula").length);
+            });
+
+            // Update Bar Chart
+            if(categoryChartInst) categoryChartInst.destroy();
+            const ctxBar = document.getElementById('categoryChart').getContext('2d');
+            categoryChartInst = new Chart(ctxBar, {
+                type: 'bar',
+                data: {
+                    labels: ['F1: Rancang', 'F2: Kajian', 'F3: Bina', 'F4: Laksana', 'F5: Lapor'],
+                    datasets: [
+                        { label: 'Selesai', data: catSelesai, backgroundColor: '#10b981' },
+                        { label: 'Sedang Berjalan', data: catSedang, backgroundColor: '#f59e0b' },
+                        { label: 'Belum Mula', data: catBelum, backgroundColor: '#ef4444' }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { stacked: true, grid: { display: false } },
+                        y: { stacked: true, beginAtZero: true, ticks: { stepSize: 1 } }
+                    },
+                    plugins: { legend: { position: 'top', labels: { boxWidth: 10, font: { size: 10 } } } }
+                }
+            });
+
+            // Prepare Data for Bar Chart (PIC)
+            const pics = ["Anita", "Liyana", "Koghi", "AsmaZ", "Hamizah"];
+            const picSelesai = [];
+            const picSedang = [];
+            const picBelum = [];
+
+            pics.forEach(pic => {
+                const picTasks = tasks.filter(t => t.pic === pic);
+                picSelesai.push(picTasks.filter(t => t.status === "Selesai").length);
+                picSedang.push(picTasks.filter(t => t.status === "Sedang Berjalan").length);
+                picBelum.push(picTasks.filter(t => t.status === "Belum Mula").length);
+            });
+
+            // Update PIC Bar Chart
+            if(picChartInst) picChartInst.destroy();
+            const ctxPic = document.getElementById('picChart').getContext('2d');
+            picChartInst = new Chart(ctxPic, {
+                type: 'bar',
+                data: {
+                    labels: pics,
+                    datasets: [
+                        { label: 'Selesai', data: picSelesai, backgroundColor: '#10b981' },
+                        { label: 'Sedang', data: picSedang, backgroundColor: '#f59e0b' },
+                        { label: 'Belum', data: picBelum, backgroundColor: '#ef4444' }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { stacked: true, grid: { display: false } },
+                        y: { stacked: true, beginAtZero: true, ticks: { stepSize: 1 } }
+                    },
+                    plugins: { legend: { position: 'top', labels: { boxWidth: 10, font: { size: 10 } } } }
+                }
+            });
+        }
+
+        // Firebase Auth & Initial Data Load
+        async function initAuth() {
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    const userCredential = await signInWithCustomToken(auth, __initial_auth_token);
+                    currentUser = userCredential.user;
+                } else {
+                    const userCredential = await signInAnonymously(auth);
+                    currentUser = userCredential.user;
+                }
+                setupFirestore();
+            } catch (error) {
+                console.error("Auth error:", error);
+                document.getElementById('connStatus').innerHTML = `<div class="w-2 h-2 rounded-full bg-red-500"></div> Ralat Akses`;
+            }
+        }
+
+        function setupFirestore() {
+            if (!currentUser) return;
+            
+            // Mandatory Strict Path format
+            tasksRef = collection(db, 'artifacts', appId, 'public', 'data', 'kikTasks');
+
+            onSnapshot(tasksRef, (snapshot) => {
+                tasks = [];
+                snapshot.forEach(doc => {
+                    tasks.push({ _id: doc.id, ...doc.data() });
+                });
+                
+                // Optional: Migrate old local data if database is totally empty
+                const localTasks = localStorage.getItem('kikTasks');
+                if(snapshot.empty && localTasks) {
+                    const parsed = JSON.parse(localTasks);
+                    if(parsed.length > 0) {
+                        parsed.forEach(t => {
+                            setDoc(doc(tasksRef, Date.now().toString() + Math.random().toString(36).substr(2, 5)), t);
+                        });
+                        localStorage.removeItem('kikTasks');
+                    }
+                }
+
+                document.getElementById('connStatus').innerHTML = `<div class="w-2 h-2 rounded-full bg-emerald-500"></div> Disambung (Live)`;
+                renderTable();
+                updateDashboard();
+            }, (error) => {
+                console.error("Firestore listener error:", error);
+                document.getElementById('connStatus').innerHTML = `<div class="w-2 h-2 rounded-full bg-red-500"></div> Ralat Rangkaian`;
+            });
+        }
+
+        // Initialization
+        window.onload = function() {
+            document.getElementById('inputTarikh').valueAsDate = new Date();
+            initAuth();
+        };
+    </script>
+</body>
+</html>
