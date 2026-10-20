@@ -173,14 +173,15 @@
                 </div>
 
                 <div>
-                    <label class="block text-sm font-semibold text-slate-700 mb-1">PIC (Ahli)</label>
-                    <select id="inputPic" required class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <option value="Anita">Anita</option>
-                        <option value="Liyana">Liyana</option>
-                        <option value="Koghi">Koghi</option>
-                        <option value="AsmaZ">AsmaZ</option>
-                        <option value="Hamizah">Hamizah</option>
-                    </select>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1">PIC (Ahli) <span class="text-xs text-slate-500 font-normal">- Boleh pilih > 1</span></label>
+                    <div class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white grid grid-cols-2 md:grid-cols-3 gap-2">
+                        <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" value="Anita" class="pic-checkbox w-4 h-4 text-blue-600 rounded"> Anita</label>
+                        <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" value="Liyana" class="pic-checkbox w-4 h-4 text-blue-600 rounded"> Liyana</label>
+                        <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" value="Koghi" class="pic-checkbox w-4 h-4 text-blue-600 rounded"> Koghi</label>
+                        <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" value="AsmaZ" class="pic-checkbox w-4 h-4 text-blue-600 rounded"> AsmaZ</label>
+                        <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" value="Hamizah" class="pic-checkbox w-4 h-4 text-blue-600 rounded"> Hamizah</label>
+                    </div>
+                    <p id="picError" class="text-xs text-red-500 mt-1 hidden">Sila tanda sekurang-kurangnya seorang ahli.</p>
                 </div>
 
                 <div>
@@ -385,10 +386,19 @@
             e.preventDefault();
             if(!currentUser || !tasksRef) return;
             
+            // Dapatkan semua kotak PIC yang ditanda
+            const selectedPics = Array.from(document.querySelectorAll('.pic-checkbox:checked')).map(cb => cb.value);
+            if (selectedPics.length === 0) {
+                document.getElementById('picError').classList.remove('hidden');
+                return; // Berhenti jika tiada PIC dipilih
+            } else {
+                document.getElementById('picError').classList.add('hidden');
+            }
+
             const taskData = {
                 tugas: document.getElementById('inputTugas').value,
                 kategori: document.getElementById('inputKategori').value,
-                pic: document.getElementById('inputPic').value,
+                pic: selectedPics.join(', '),
                 tarikh: document.getElementById('inputTarikh').value,
                 status: document.getElementById('inputStatus').value,
                 komen: document.getElementById('inputKomen').value,
@@ -424,7 +434,16 @@
             if(task) {
                 document.getElementById('inputTugas').value = task.tugas;
                 document.getElementById('inputKategori').value = task.kategori;
-                document.getElementById('inputPic').value = task.pic;
+                
+                // Tandakan semula checkbox PIC mengikut data yang disimpan
+                document.querySelectorAll('.pic-checkbox').forEach(cb => cb.checked = false);
+                if(task.pic) {
+                    const picsArr = task.pic.split(', ');
+                    document.querySelectorAll('.pic-checkbox').forEach(cb => {
+                        if(picsArr.includes(cb.value)) cb.checked = true;
+                    });
+                }
+
                 document.getElementById('inputTarikh').value = task.tarikh;
                 document.getElementById('inputStatus').value = task.status;
                 document.getElementById('inputKomen').value = task.komen || '';
@@ -445,6 +464,7 @@
         window.cancelEdit = function() {
             editingId = null;
             taskForm.reset();
+            document.querySelectorAll('.pic-checkbox').forEach(cb => cb.checked = false); // Kosongkan tanda PIC
             document.getElementById('inputTarikh').valueAsDate = new Date();
             
             const submitBtn = document.getElementById('submitBtn');
@@ -561,7 +581,8 @@
             const picBelum = [];
 
             pics.forEach(pic => {
-                const picTasks = tasks.filter(t => t.pic === pic);
+                // Pastikan kiraan dicampur untuk setiap tugasan yang nama ahli tersebut ada di dalamnya
+                const picTasks = tasks.filter(t => t.pic && t.pic.includes(pic));
                 picSelesai.push(picTasks.filter(t => t.status === "Selesai").length);
                 picSedang.push(picTasks.filter(t => t.status === "Sedang Berjalan").length);
                 picBelum.push(picTasks.filter(t => t.status === "Belum Mula").length);
